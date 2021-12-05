@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>登录页面</title>
+    <style>
+        body{
+            background-color: lightyellow;
+        }
+        .log{
+            font-size: 30px;
+            text-align: left;
+        }
+        .login{
+            background-color: white;
+            margin-left: 80px;
+            margin-top: 100px;
+            padding-left: 30px;
+            padding-top: 20px;
+            height: 380px;
+            width: 240px;
+            border-radius: 25px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login">
+        <p class="log">登录</p>
+        <form action="http://127.0.0.1:5000/lsuccess/" method="post">
+            <table class="loginn">
+                <label>用户名：<input type="text" name="username" Placeholder="请输入用户名"></label><br>
+                <br>
+                <label>密&nbsp;&nbsp;&nbsp;&nbsp;码：<input type="password" name="password" placeholder="请输入密码" ></label><br>
+                <br>
+                <input type="submit" value="登录">
+                <br><br>
+                <p>没有账号？<a href="{{ url_for('regist_html') }}">立即注册</a></p>
+    {% if error %}
+        <p class="error">{{error}}</p>
+    {% endif %}
+            </table>
+        </form>
+
+    </div>
+
+</body>
+</html>
