@@ -1,0 +1,51 @@
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.actionColumn} style={{ width: "64px" }}>
+        <div className={styles.actionText}>操作</div>
+      </div>
+
+     <div className={styles.scrollArea}>
+        <div
+          ref={scrollRef || ref}
+          className={styles.scrollContent}
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
+          <div className={styles.columnsWrapper} style={{ minWidth: "400%" }}>
+            {headers.map((header, index) => {
+              const hasItems = header.items && header.items.length > 0
+              const columnWidth = "25%" // 100% / 4
+
+              return (
+                <div key={index} className={styles.column} style={{ width: columnWidth }}>
+                  {hasItems ? (
+                    // 有items的情况：两行结构
+                    <div className={styles.columnWithItems}>
+                      {/* 第一行 */}
+                      <div className={styles.firstRow}>{header.label}</div>
+                      {/* 第二行 */}
+                      <div className={styles.secondRow}>
+                        {header.items!.map((item, itemIndex) => (
+                          <div key={itemIndex} className={styles.subItem}>
+                            {item.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={styles.fullHeightCell}>{header.label}</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+})
+
+export default ScrollableTableHeader
+
+
+
