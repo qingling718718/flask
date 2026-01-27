@@ -1,379 +1,44 @@
-"use client"
+const key =
+  periodMode === 'DAY'
+    ? ['reservations', 'day', viewMode, date, idsStable]
+    : null;
 
-import { forwardRef, useRef, useImperativeHandle } from "react"
+const { data: raw, isLoading, isValidating } = useSWR(
+  key,
+  async ([
+    _namespace,  // 'reservations'
+    _type,       // 'day'
+    viewMode,
+    date,
+    ids,
+  ]) => {
+    // ⭐ 只有 key !== null 才会进来
+    // 所以这里不用再判断 periodMode
 
-interface HeaderItem {
-  label: string
-  items?: { label: string }[]
-}
+    // ===== 日表示请求 =====
+    const [{ data: { columns } }, { data: { dates } }] = await Promise.all([
+      getMockData(
+        viewMode === VIEW_MODE.STAFF ? staffDailyData : unitDailyData,
+        1000,
+      ),
+      // 需要列周时再拉（如果你把列周也放进 key）
+      getMockData(colWeeklyData, 500),
+    ]);
 
-interface ScheduleTableProps {
-  headers: HeaderItem[]
-}
-
-export interface ScheduleTableRef {
-  scrollLeft: (value: number) => void
-  scrollTo: (x: number, y: number) => void
-}
-
-// 生成时间数组 8:00-18:00 间隔15分钟
-const generateTimeSlots = () => {
-  const times: string[] = []
-  for (let hour = 8; hour <= 18; hour++) {
-    for (let minute = 0; minute < 60; minute += 15) {
-      if (hour === 18 && minute > 0) break
-      const h = hour.toString().padStart(2, "0")
-      const m = minute.toString().padStart(2, "0")
-      times.push(`${h}:${m}`)
-    }
+    // ⭐ fetcher 只 return raw，不做任何副作用
+    return {
+      kind: 'day' as const,
+      dailyColumns: columns,
+      weeklyColumnData: ids.map(colId => ({
+        colId,
+        dates,
+      })),
+    };
+  },
+  {
+    keepPreviousData: true,
+    refreshInterval: 40000,
+    revalidateOnFocus: true,
+    shouldRetryOnError: false,
   }
-  return times
-}
-
-const ScheduleTable = forwardRef<ScheduleTableRef, ScheduleTableProps>(({ headers }, ref) => {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const timeSlots = generateTimeSlots()
-  const hasSecondRow = headers.some((header) => header.items && header.items.length > 0)
-
-  // 展开所有列（包括子项）
-  const expandedColumns: { parentLabel: string; subLabel?: string; isFirst: boolean }[] = []
-  headers.forEach((header) => {
-    if (header.items && header.items.length > 0) {
-      header.items.forEach((item, i) => {
-        expandedColumns.push({ parentLabel: header.label, subLabel: item.label, isFirst: i === 0 })
-      })
-    } else {
-      expandedColumns.push({ parentLabel: header.label, isFirst: true })
-    }
-  })
-
-  useImperativeHandle(ref, () => ({
-    scrollLeft: (value: number) => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollLeft = value
-      }
-    },
-    scrollTo: (x: number, y: number) => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollLeft = x
-        scrollRef.current.scrollTop = y
-      }
-    },
-  }))
-
-  return (
-    <div
-      ref={scrollRef}
-      style={{
-        width: "100%",
-        height: "100%",
-        overflow: "auto",
-        position: "relative",
-      }}
-    >
-      <div style={{ display: "flex", width: "fit-content", minWidth: "100%" }}>
-        {/* 左侧时间列 */}
-        <div style={{ flexShrink: 0, width: 64, position: "sticky", left: 0, zIndex: 20, background: "#fafafa" }}>
-          {/* 时间列表头 */}
-          <div
-            style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 30,
-              width: 64,
-              height: hasSecondRow ? 88 : 44,
-              background: "#f5f5f5",
-              borderRight: "1px solid #e0e0e0",
-              borderBottom: "1px solid #e0e0e0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 600,
-              fontSize: 14,
-            }}
-          >
-            时间
-          </div>
-          {/* 时间单独map */}
-          {timeSlots.map((time, timeIndex) => (
-            <div
-              key={`time-${timeIndex}`}
-              style={{
-                width: 64,
-                height: 48,
-                background: "#fafafa",
-                borderRight: "1px solid #e0e0e0",
-                borderBottom: "1px solid #e0e0e0",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 13,
-                color: "#333",
-              }}
-            >
-              {time}
-            </div>
-          ))}
-        </div>
-
-        {/* 内容区域 - 先用表头map，里面再用时间map */}
-        {expandedColumns.map((col, colIndex) => (
-          <div key={`col-${colIndex}`} style={{ flexShrink: 0, width: "20vw" }}>
-            {/* 表头 */}
-            <div
-              style={{
-                position: "sticky",
-                top: 0,
-                zIndex: 10,
-                width: "20vw",
-                height: hasSecondRow ? 88 : 44,
-                background: "#f5f5f5",
-                borderRight: "1px solid #e0e0e0",
-                borderBottom: "1px solid #e0e0e0",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              {col.subLabel ? (
-                <>
-                  <div
-                    style={{
-                      height: 44,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 600,
-                      fontSize: 14,
-                      borderBottom: "1px solid #e0e0e0",
-                    }}
-                  >
-                    {col.isFirst ? col.parentLabel : ""}
-                  </div>
-                  <div
-                    style={{
-                      height: 44,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 13,
-                      color: "#666",
-                    }}
-                  >
-                    {col.subLabel}
-                  </div>
-                </>
-              ) : (
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 600,
-                    fontSize: 14,
-                  }}
-                >
-                  {col.parentLabel}
-                </div>
-              )}
-            </div>
-
-            {/* 里面用时间map渲染格子 */}
-            {timeSlots.map((_, timeIndex) => (
-              <div
-                key={`cell-${colIndex}-${timeIndex}`}
-                style={{
-                  width: "20vw",
-                  height: 48,
-                  background: "#fff",
-                  borderRight: "1px solid #e0e0e0",
-                  borderBottom: "1px solid #e0e0e0",
-                }}
-              />
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-})
-
-ScheduleTable.displayName = "ScheduleTable"
-
-export default ScheduleTable
-
-
-
-
-
-.container {
-  display: flex;
-}
-
-.scrollArea {
-  flex: 1;
-  overflow: hidden;
-}
-
-.scrollContent {
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.scrollContent::-webkit-scrollbar {
-  display: none;
-}
-
-.columnsWrapper {
-  display: flex;
-  height: 100%;
-  min-width: 400%;
-}
-
-.column {
-  display: flex;
-  flex-shrink: 0;
-  width: 25%;
-}
-
-.columnWithItems {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.firstRow {
-  border: 1px solid hsl(var(--border));
-  border-left: 0;
-  background: hsl(var(--muted));
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.firstRow:first-child {
-  border-left: 1px solid hsl(var(--border));
-}
-
-.secondRow {
-  display: flex;
-}
-
-.subItem {
-  flex: 1;
-  border: 1px solid hsl(var(--border));
-  border-top: 0;
-  border-left: 0;
-  background: hsl(var(--muted) / 0.5);
-  padding: 0.5rem 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-align: center;
-}
-
-.subItem:first-child {
-  border-left: 1px solid hsl(var(--border));
-}
-
-.fullHeightCell {
-  flex: 1;
-  border: 1px solid hsl(var(--border));
-  border-left: 0;
-  background: hsl(var(--muted));
-  padding: 0 1rem;
-  display: flex;
-  align-items: center;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.fullHeightCell:first-child {
-  border-left: 1px solid hsl(var(--border));
-}
-
-.actionColumn {
-  flex-shrink: 0;
-  width: 64px;
-  border: 1px solid hsl(var(--border));
-  /* 移除右边框，改为移除左边框，因为现在在左侧 */
-  border-right: 0;
-  background: hsl(var(--muted));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-
-import type React from "react"
-import { forwardRef } from "react"
-import styles from "./scrollable-table-header.module.css"
-
-interface HeaderItem {
-  label: string
-  items?: { label: string }[]
-}
-
-interface ScrollableTableHeaderProps {
-  headers: HeaderItem[]
-  scrollRef?: React.RefObject<HTMLDivElement>
-}
-
-const ScrollableTableHeader = forwardRef<HTMLDivElement, ScrollableTableHeaderProps>(({ headers, scrollRef }, ref) => {
-  // 检查是否有任何列包含items
-  const hasSecondRow = headers.some((header) => header.items && header.items.length > 0)
-
-  return (
-    <div className={styles.container}>
-      <div className={styles.actionColumn} style={{ width: "64px" }}>
-        <div className={styles.actionText}>操作</div>
-      </div>
-
-      {/* 可滚动区域 */}
-      <div className={styles.scrollArea}>
-        <div
-          ref={scrollRef || ref}
-          className={styles.scrollContent}
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-        >
-          <div className={styles.columnsWrapper} style={{ minWidth: "400%" }}>
-            {headers.map((header, index) => {
-              const hasItems = header.items && header.items.length > 0
-              const columnWidth = "25%" // 100% / 4
-
-              return (
-                <div key={index} className={styles.column} style={{ width: columnWidth }}>
-                  {hasItems ? (
-                    // 有items的情况：两行结构
-                    <div className={styles.columnWithItems}>
-                      {/* 第一行 */}
-                      <div className={styles.firstRow}>{header.label}</div>
-                      {/* 第二行 */}
-                      <div className={styles.secondRow}>
-                        {header.items!.map((item, itemIndex) => (
-                          <div key={itemIndex} className={styles.subItem}>
-                            {item.label}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={styles.fullHeightCell}>{header.label}</div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-})
-
-ScrollableTableHeader.displayName = "ScrollableTableHeader"
-
-export default ScrollableTableHeader
-
-
+);
